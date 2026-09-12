@@ -28,6 +28,40 @@ dart format .         # formatting
 flutter run           # needs a connected device or desktop toolchain
 ```
 
+## Local toolchain (WSL)
+
+Both SDKs must be **Linux** builds. A Windows Flutter SDK under `/mnt/c` has
+CRLF shebangs (`/usr/bin/env: 'bash\r': No such file or directory`), and a
+Windows Android SDK ships win32 binaries (`adb.exe`, `aapt2.exe`) that the Linux
+toolchain cannot execute. Installed versions here: Flutter 3.47.4 / Dart 3.13.3,
+Android SDK 36.0.0 (`compileSdk = 36`, matching this Flutter release's default).
+
+```bash
+# Flutter
+git clone --depth 1 --branch stable https://github.com/flutter/flutter.git ~/flutter
+export PATH="$HOME/flutter/bin:$PATH"
+
+# Linux desktop target (fast local iteration via WSLg)
+sudo apt-get install -y clang libgtk-3-dev pkg-config ninja-build libstdc++-12-dev
+
+# Android SDK — command-line tools only, no Android Studio needed.
+# The zip MUST end up at $ANDROID_HOME/cmdline-tools/latest/ or sdkmanager
+# cannot resolve its own package path.
+export ANDROID_HOME="$HOME/Android/Sdk"
+export PATH="$ANDROID_HOME/platform-tools:$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+sdkmanager --install platform-tools "platforms;android-36" "build-tools;36.0.0"
+flutter config --android-sdk "$ANDROID_HOME"
+flutter doctor --android-licenses
+```
+
+Two harmless warnings on the way through: `sdkmanager` reports itself deprecated
+in favour of the newer `android` CLI, and the Gradle run warns that it
+"only understands SDK XML versions up to 3" — both cosmetic.
+
+Verified working: `flutter build apk --debug` and `flutter build linux --debug`
+both succeed, and the Linux bundle launches under WSLg. Only the Chrome/web
+target is absent, and web is not a platform of this project.
+
 ## Verification
 
 `flutter analyze`, `dart format --set-exit-if-changed` and
