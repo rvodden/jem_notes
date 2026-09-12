@@ -25,4 +25,12 @@
 # `ai-sdlc doctor` at any time to see the real state of this repo's
 # attestation governance (artifacts present vs. enforcement configured).
 
-reviewers: []
+reviewers:
+  - identity: 'rvodden'
+    machine: 'LargePixelCollider'
+    addedAt: '2026-09-12'
+    addedBy: 'rvodden'
+    pubkey: |
+      -----BEGIN PUBLIC KEY-----
+      MCowBQYDK2VwAyEAEFv2kRHqZhRGMbdbEubwM47/Jh0qZfm76V9XQdLy3p0=
+      -----END PUBLIC KEY-----
