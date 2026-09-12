@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+set -eu
+
+# ai-sdlc:attestation-sign-block
+# Signs the DSSE attestation envelope for the current HEAD when verdict
+# files exist. Skip with AI_SDLC_SKIP_ATTESTATION_SIGN=1.
+if [ -z "${AI_SDLC_SKIP_ATTESTATION_SIGN:-}" ]; then
+  AI_SDLC_ATTESTATION_HOOK=""
+  if [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -f "${CLAUDE_PLUGIN_ROOT}/scripts/check-attestation-sign.sh" ]; then
+    AI_SDLC_ATTESTATION_HOOK="${CLAUDE_PLUGIN_ROOT}/scripts/check-attestation-sign.sh"
+  elif [ -n "${CLAUDE_PLUGIN_DIR:-}" ] && [ -f "${CLAUDE_PLUGIN_DIR}/scripts/check-attestation-sign.sh" ]; then
+    AI_SDLC_ATTESTATION_HOOK="${CLAUDE_PLUGIN_DIR}/scripts/check-attestation-sign.sh"
+  else
+    for _ai_sdlc_dir in "$HOME"/.claude/plugins/cache/*/ai-sdlc/*/; do
+      if [ -f "${_ai_sdlc_dir}scripts/check-attestation-sign.sh" ]; then
+        AI_SDLC_ATTESTATION_HOOK="${_ai_sdlc_dir}scripts/check-attestation-sign.sh"
+        break
+      fi
+    done
+  fi
+  if [ -n "$AI_SDLC_ATTESTATION_HOOK" ]; then
+    echo "[ai-sdlc] attestation signer: $AI_SDLC_ATTESTATION_HOOK" >&2
+    bash "$AI_SDLC_ATTESTATION_HOOK"
+  elif [ -n "$(ls -A .ai-sdlc/verdicts 2>/dev/null)" ]; then
+    echo "[ai-sdlc] ERROR: reviewer verdicts exist under .ai-sdlc/verdicts/ but NO attestation signer" >&2
+    echo "[ai-sdlc]   could be found — this push will carry no attestation." >&2
+    echo "[ai-sdlc]   Searched CLAUDE_PLUGIN_ROOT, CLAUDE_PLUGIN_DIR, and" >&2
+    echo "[ai-sdlc]   ~/.claude/plugins/cache/*/ai-sdlc/*/scripts/check-attestation-sign.sh" >&2
+    echo "[ai-sdlc]   Install the ai-sdlc Claude Code plugin, or set CLAUDE_PLUGIN_ROOT." >&2
+  fi
+fi
+# end ai-sdlc:attestation-sign-block
