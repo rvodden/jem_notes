@@ -12,7 +12,7 @@ spec:
     sourceControl:
       type: github
       config:
-        org: your-org
+        org: rvodden
   stages:
     - name: validate
       qualityGates:

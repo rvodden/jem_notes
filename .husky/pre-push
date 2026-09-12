@@ -1,6 +1,26 @@
 #!/usr/bin/env sh
 set -eu
 
+# ── Flutter verification gate (DEC-0001) ────────────────────────────────────
+# Replaces the scaffolded `pnpm -r test:coverage` assumption. Skipped entirely
+# until `flutter create` lands a pubspec.yaml, and skipped when flutter is not
+# on PATH (e.g. a WSL shell where only a Windows SDK is installed) — a push
+# that cannot run the gate must not be blocked by it, only warned about.
+# Bypass deliberately with AI_SDLC_SKIP_VERIFY=1.
+if [ -z "${AI_SDLC_SKIP_VERIFY:-}" ] && [ -f pubspec.yaml ]; then
+  if command -v flutter >/dev/null 2>&1; then
+    echo "[ai-sdlc] flutter analyze" >&2
+    flutter analyze
+    echo "[ai-sdlc] dart format --set-exit-if-changed" >&2
+    dart format --output=none --set-exit-if-changed .
+    echo "[ai-sdlc] flutter test --coverage" >&2
+    flutter test --coverage
+  else
+    echo "[ai-sdlc] WARNING: pubspec.yaml present but 'flutter' is not on PATH —" >&2
+    echo "[ai-sdlc]   skipping local verification. CI will still run the gate." >&2
+  fi
+fi
+
 # ai-sdlc:attestation-sign-block
 # Signs the DSSE attestation envelope for the current HEAD when verdict
 # files exist. Skip with AI_SDLC_SKIP_ATTESTATION_SIGN=1.
