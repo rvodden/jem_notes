@@ -87,8 +87,15 @@ jobs:
         if: steps.discover.outputs.pr != '' && steps.guard.outputs.skip != 'true'
         env:
           GH_TOKEN: ${{ secrets.AI_SDLC_PAT || github.token }}
+          # This step never checks the repo out, so gh has no git remote to
+          # infer the repo from: without GH_REPO it dies with "failed to run
+          # git: fatal: not a git repository". Every other gh step in this
+          # workflow sets it; the scaffolded version of this one did not.
+          GH_REPO: ${{ github.repository }}
           PR: ${{ steps.discover.outputs.pr }}
         run: |
           # disable-then-arm to clear any stale GitHub auto-merge state.
           gh pr merge --disable-auto "$PR" 2>/dev/null || true
-          gh pr merge --auto "$PR"
+          # A merge method is mandatory when gh runs non-interactively.
+          # Squash keeps main at one commit per PR; change here to alter that.
+          gh pr merge --auto --squash "$PR"
