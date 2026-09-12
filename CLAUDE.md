@@ -36,6 +36,11 @@ Before EVERY commit, run these and fix any failures:
 verification gate. It no-ops until `pubspec.yaml` exists, and warns rather than
 blocks when `flutter` is not on PATH.
 
+**Each clone must run `git config core.hooksPath .husky` once.** `ai-sdlc init`
+picks `.husky/pre-push` whenever a repo has no `package.json`, but git reads
+`.git/hooks/` by default and husky is a Node tool this Flutter project will never
+install — so without that config the hook never fires and CI is the only gate.
+
 **WSL note:** the Flutter SDK on `PATH` may be a *Windows* install under
 `/mnt/c/`. Its scripts have CRLF line endings and cannot run from WSL
 (`/usr/bin/env: 'bash\r': No such file or directory`). A Linux SDK inside WSL is
