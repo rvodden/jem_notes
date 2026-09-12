@@ -57,14 +57,24 @@ jobs:
           GH_REPO: ${{ github.repository }}
           PR: ${{ steps.discover.outputs.pr }}
           REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          PR_INFO=$(gh pr view "$PR" --json isDraft,headRepositoryOwner,headRepository,headRefName \
-            -q '{isDraft: .isDraft, headRefName: .headRefName, headFull: (((.headRepositoryOwner.login // "") + "/" + (.headRepository.name // "")) // "")}')
+          PR_INFO=$(gh pr view "$PR" --json isDraft,headRepositoryOwner,headRepository,headRefName,baseRefName \
+            -q '{isDraft: .isDraft, headRefName: .headRefName, baseRefName: .baseRefName, headFull: (((.headRepositoryOwner.login // "") + "/" + (.headRepository.name // "")) // "")}')
           IS_DRAFT=$(echo "$PR_INFO" | jq -r '.isDraft')
           HEAD_FULL=$(echo "$PR_INFO" | jq -r '.headFull')
           HEAD_REF=$(echo "$PR_INFO" | jq -r '.headRefName')
-          if [ "$IS_DRAFT" = "true" ]; then
+          BASE_REF=$(echo "$PR_INFO" | jq -r '.baseRefName')
+          if [ "$BASE_REF" != "$DEFAULT_BRANCH" ]; then
+            # Branch protection only guards the default branch, so a stacked PR
+            # targeting another feature branch has NO required checks and NO
+            # required approvals — arming it there means GitHub merges it
+            # within seconds of opening, unreviewed. Observed exactly that on
+            # PR #3 (merged 7s after creation into an unprotected base).
+            echo "[auto-enable] PR #$PR targets '$BASE_REF', not the default branch '$DEFAULT_BRANCH' — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$IS_DRAFT" = "true" ]; then
             echo "[auto-enable] PR #$PR is draft — skipping."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$HEAD_FULL" = "/" ] || [ -z "$HEAD_FULL" ]; then
