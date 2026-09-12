@@ -5,9 +5,13 @@ name: Auto-enable auto-merge on PR open
 # CI + merges if green. No human click needed.
 #
 # Requires repo setting "Allow auto-merge" to be enabled (Settings → General).
-# Requires a PAT or GitHub App token with `pull_requests: write` stored as
-# the `AI_SDLC_PAT` repository secret (or swap for `github.token` if your
-# repo grants it write access).
+# Auth: uses the `AI_SDLC_PAT` repository secret when set, else falls back to
+# `github.token` (this workflow already requests `pull-requests: write` +
+# `contents: write` below, so the fallback is sufficient to arm auto-merge).
+# The scaffolded version referenced `secrets.AI_SDLC_PAT` unconditionally, so
+# with no such secret GH_TOKEN was empty and every step died with `gh` exit 4.
+# Set the PAT only if you need arming to trigger OTHER workflows — events
+# raised by `github.token` deliberately do not cascade.
 
 on:
   pull_request:
@@ -27,7 +31,7 @@ jobs:
       - name: Discover PR for this event
         id: discover
         env:
-          GH_TOKEN: ${{ secrets.AI_SDLC_PAT }}
+          GH_TOKEN: ${{ secrets.AI_SDLC_PAT || github.token }}
           GH_REPO: ${{ github.repository }}
           EVENT_NAME: ${{ github.event_name }}
           PR_NUMBER_FROM_PR_EVENT: ${{ github.event.pull_request.number }}
@@ -49,18 +53,28 @@ jobs:
         id: guard
         if: steps.discover.outputs.pr != ''
         env:
-          GH_TOKEN: ${{ secrets.AI_SDLC_PAT }}
+          GH_TOKEN: ${{ secrets.AI_SDLC_PAT || github.token }}
           GH_REPO: ${{ github.repository }}
           PR: ${{ steps.discover.outputs.pr }}
           REPO: ${{ github.repository }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           set -euo pipefail
-          PR_INFO=$(gh pr view "$PR" --json isDraft,headRepositoryOwner,headRepository,headRefName \
-            -q '{isDraft: .isDraft, headRefName: .headRefName, headFull: (((.headRepositoryOwner.login // "") + "/" + (.headRepository.name // "")) // "")}')
+          PR_INFO=$(gh pr view "$PR" --json isDraft,headRepositoryOwner,headRepository,headRefName,baseRefName \
+            -q '{isDraft: .isDraft, headRefName: .headRefName, baseRefName: .baseRefName, headFull: (((.headRepositoryOwner.login // "") + "/" + (.headRepository.name // "")) // "")}')
           IS_DRAFT=$(echo "$PR_INFO" | jq -r '.isDraft')
           HEAD_FULL=$(echo "$PR_INFO" | jq -r '.headFull')
           HEAD_REF=$(echo "$PR_INFO" | jq -r '.headRefName')
-          if [ "$IS_DRAFT" = "true" ]; then
+          BASE_REF=$(echo "$PR_INFO" | jq -r '.baseRefName')
+          if [ "$BASE_REF" != "$DEFAULT_BRANCH" ]; then
+            # Branch protection only guards the default branch, so a stacked PR
+            # targeting another feature branch has NO required checks and NO
+            # required approvals — arming it there means GitHub merges it
+            # within seconds of opening, unreviewed. Observed exactly that on
+            # PR #3 (merged 7s after creation into an unprotected base).
+            echo "[auto-enable] PR #$PR targets '$BASE_REF', not the default branch '$DEFAULT_BRANCH' — skipping."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          elif [ "$IS_DRAFT" = "true" ]; then
             echo "[auto-enable] PR #$PR is draft — skipping."
             echo "skip=true" >> "$GITHUB_OUTPUT"
           elif [ "$HEAD_FULL" = "/" ] || [ -z "$HEAD_FULL" ]; then
@@ -82,9 +96,16 @@ jobs:
       - name: Refresh auto-merge
         if: steps.discover.outputs.pr != '' && steps.guard.outputs.skip != 'true'
         env:
-          GH_TOKEN: ${{ secrets.AI_SDLC_PAT }}
+          GH_TOKEN: ${{ secrets.AI_SDLC_PAT || github.token }}
+          # This step never checks the repo out, so gh has no git remote to
+          # infer the repo from: without GH_REPO it dies with "failed to run
+          # git: fatal: not a git repository". Every other gh step in this
+          # workflow sets it; the scaffolded version of this one did not.
+          GH_REPO: ${{ github.repository }}
           PR: ${{ steps.discover.outputs.pr }}
         run: |
           # disable-then-arm to clear any stale GitHub auto-merge state.
           gh pr merge --disable-auto "$PR" 2>/dev/null || true
-          gh pr merge --auto "$PR"
+          # A merge method is mandatory when gh runs non-interactively.
+          # Squash keeps main at one commit per PR; change here to alter that.
+          gh pr merge --auto --squash "$PR"

@@ -2,3 +2,52 @@
 .ai-sdlc/state.db
 .ai-sdlc/state/
 .ai-sdlc/audit.jsonl
+
+# ── Flutter / Dart ──────────────────────────────────────────────────────────
+# `flutter create` preserves a pre-existing .gitignore rather than writing its
+# own, so these are added by hand. Keep the ai-sdlc block above intact.
+.dart_tool/
+.packages
+build/
+coverage/
+*.iml
+.flutter-plugins
+.flutter-plugins-dependencies
+# NOTE: pubspec.lock is deliberately NOT ignored. Dart ignores it for
+# libraries but commits it for applications — CI runs `flutter pub get`,
+# so without the lockfile dependency versions float between runs.
+
+# IDE
+.idea/
+*.iws
+.vscode/*
+!.vscode/mcp.json
+
+# Android
+**/android/.gradle/
+**/android/local.properties
+**/android/**/GeneratedPluginRegistrant.java
+**/android/key.properties
+*.jks
+
+# iOS / macOS
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework/
+**/ios/Flutter/Flutter.framework/
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/ephemeral/
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Podfile.lock
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/**/*.mode1v3
+**/ios/**/*.mode2v3
+**/ios/**/*.pbxuser
+**/ios/**/*.perspectivev3
+**/ios/ServiceDefinitions.json
+**/ios/Runner/GeneratedPluginRegistrant.*
+.DS_Store
+
+# Linux desktop
+**/linux/flutter/ephemeral/

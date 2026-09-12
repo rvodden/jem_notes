@@ -10,6 +10,12 @@ name: AI-SDLC PR Ready Gate
 # Industry pattern: `re-actors/alls-green` ("alls-green") is the de facto
 # community fix; named adopters include aiohttp, attrs, conda, setuptools,
 # pytest, pip-tools, Open edX, PyCA, PyPA, Mergify.
+#
+# TOOLCHAIN: Flutter/Dart (DEC-0001 — see .ai-sdlc/_decisions/events.jsonl).
+# The scaffolded version of this file hardcoded a pnpm/Node monorepo, which
+# never matched this repo. The Flutter jobs below are gated on a pubspec.yaml
+# existing at the repo root so this gate is green BEFORE `flutter create`
+# lands and activates automatically afterwards — see the `detect` job.
 
 on:
   # AISDLC-261 PR #480 review fix: include 'ready_for_review' so the gate
@@ -36,6 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       docs_only: ${{ steps.filter.outputs.docs_only }}
+      has_flutter: ${{ steps.probe.outputs.has_flutter }}
     steps:
       - uses: actions/checkout@v4
       - id: filter
@@ -46,64 +53,70 @@ jobs:
             docs_only:
               - 'docs/**'
               - '*.md'
+      # A repo with no pubspec.yaml has no Dart package to analyse or test.
+      # Without this probe every Flutter job below fails on `flutter pub get`
+      # and takes the ai-sdlc/pr-ready rollup down with it.
+      - id: probe
+        run: |
+          if [ -f pubspec.yaml ]; then
+            echo "has_flutter=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_flutter=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No pubspec.yaml at repo root — Flutter analyse/test/coverage jobs will skip."
+          fi
 
-  lint:
-    name: Lint & Format
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm lint
-      - run: pnpm format:check
-
-  build-test:
-    name: Build & Test (Node ${{ matrix.node-version }})
+  analyze:
+    name: Analyse & Format
     needs: detect
-    if: needs.detect.outputs.docs_only != 'true'
+    if: needs.detect.outputs.has_flutter == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: subosito/flutter-action@v2
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter analyze
+      # --set-exit-if-changed is what makes this a CHECK rather than a
+      # silent reformat; --output=none stops it rewriting files in CI.
+      - run: dart format --output=none --set-exit-if-changed .
 
-  coverage:
-    name: Coverage
+  test:
+    name: Test & Coverage
     needs: detect
-    if: needs.detect.outputs.docs_only != 'true'
+    if: needs.detect.outputs.has_flutter == 'true' && needs.detect.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
+      - uses: subosito/flutter-action@v2
         with:
-          node-version: 22
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test:coverage
+          channel: stable
+          cache: true
+      - run: flutter pub get
+      - run: flutter test --coverage
+      # Retained unconditionally so the lcov report is downloadable even on a
+      # failing run — the coverage number is the thing you want most when
+      # tests fail for a coverage reason.
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
+          if-no-files-found: warn
 
   pr-ready:
     name: ai-sdlc/pr-ready
-    needs: [detect, lint, build-test, coverage]
+    needs: [detect, analyze, test]
     if: always()
     runs-on: ubuntu-latest
     steps:
       - name: Aggregate required signals
         uses: re-actors/alls-green@release/v1
         with:
+          # alls-green counts a SKIPPED job as a failure unless it is named
+          # here. Both Flutter jobs skip by design (no pubspec.yaml yet, or a
+          # docs-only changeset), so without allowed-skips this rollup would
+          # fail on exactly the changesets it is meant to wave through.
+          allowed-skips: analyze, test
           jobs: ${{ toJSON(needs) }}
