@@ -65,5 +65,38 @@ Codecov is set up, add it back to that file and re-run
 `ai-sdlc init --add branch-protection`. `flutter test --coverage` already
 produces `coverage/lcov.info`, uploaded as a CI artifact, so the data is ready.
 
-`main` is protected: 1 approving review, no force pushes, no deletions. All work
-goes through a PR. **Never merge PRs — only humans merge.**
+`main` is protected: required check `ai-sdlc/pr-ready`, strict (branch must be up
+to date), no force pushes, no deletions. All work goes through a PR.
+**Never merge PRs — only humans merge.**
+
+**No approving review is required (GOV-1 / DEC-0003).** With one human
+maintainer that rule was unsatisfiable — GitHub forbids approving your own PR,
+so it could only ever be met by admin bypass, and both early merges did exactly
+that. The review gate is therefore the merge button: a human reads the PR and
+clicks. To keep that click meaningful, auto-merge is off in two places — the
+repo setting "Allow auto-merge", and the `auto-enable-auto-merge.yml` workflow
+itself, set to `disabled_manually` via the Actions API. Both must be turned back
+on to restore hands-off merging, which is a decision to make together with
+giving agents a separate identity.
+
+A file-level `if: vars.AI_SDLC_AUTO_MERGE == 'true'` guard on that workflow
+would be tidier than a manual disable, but the `gh` token lacks the `workflow`
+scope, so `.github/workflows/**` cannot be written via the API (404). Run
+`gh auth refresh -s workflow` on the machine to unblock that.
+
+### Commit signing
+
+Commits are signed via 1Password (`gpg.format ssh`, `commit.gpgsign true`,
+`gpg.ssh.program` → `op-ssh-sign-wsl.exe`). When 1Password is unreachable —
+notably when the operator is remote from the machine — `git commit` fails with
+`1Password: failed to fill whole buffer` and SSH push fails with
+`communication with agent failed`. Two things follow:
+
+- The GitHub contents API is the fallback for landing work, but **API commits
+  are not signed**. `main` already carries two such commits (`8929016`,
+  `b3f769a`).
+- Only a **squash** merge replaces branch commits with a single GitHub-signed
+  commit. A merge commit *preserves* the originals, unsigned and all.
+
+`required_signatures` is deliberately **off**: enabling it would reject exactly
+those fallback commits and block all work whenever 1Password is away.
