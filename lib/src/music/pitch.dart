@@ -16,8 +16,17 @@ enum NoteLetter {
 
   const NoteLetter(this.label, this.stepsFromC);
 
-  /// Single upper-case letter as a child would say it.
+  /// Canonical upper-case letter, as used in scientific pitch notation,
+  /// logs and tests.
   final String label;
+
+  /// How the letter is shown to the child: lower case.
+  ///
+  /// Note names are conventionally capitals, and [label] keeps that. But a
+  /// six-year-old reads lower case far more fluently — it is what he meets
+  /// first learning to read — and this app's whole job is reading. The model
+  /// stays canonical; only the child-facing surface changes.
+  String get displayLabel => label.toLowerCase();
 
   /// Distance above C within one octave, in staff steps.
   final int stepsFromC;

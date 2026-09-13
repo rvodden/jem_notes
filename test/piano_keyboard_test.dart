@@ -315,7 +315,7 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tapAt(at('G4'));
       await tester.pumpAndSettle();
-      expect(find.text('G'), findsOneWidget);
+      expect(find.text('g'), findsOneWidget);
     });
   });
 }

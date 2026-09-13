@@ -45,7 +45,7 @@ class _KeyboardHarnessPageState extends State<KeyboardHarnessPage> {
               child: Text(
                 _last == null
                     ? 'Press a key'
-                    : _last!.naturalBelow.letter.label,
+                    : _last!.naturalBelow.letter.displayLabel,
                 style: Theme.of(context).textTheme.displayMedium,
               ),
             ),
