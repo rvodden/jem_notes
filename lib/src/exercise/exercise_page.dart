@@ -236,10 +236,11 @@ class _LetterButtons extends StatelessWidget {
                     : scheme.secondaryContainer,
                 foregroundColor: scheme.onSecondaryContainer,
                 shape: const CircleBorder(),
-                textStyle: const TextStyle(
-                  fontSize: 34,
-                  fontWeight: FontWeight.w600,
-                ),
+                // Derived from the theme rather than a bare TextStyle, so the
+                // letters inherit the app's font family instead of falling back
+                // to whatever the platform supplies.
+                textStyle: Theme.of(context).textTheme.headlineMedium
+                    ?.copyWith(fontWeight: FontWeight.w600),
               ),
               onPressed: revealed != null ? null : () => onPressed(letter),
               child: Text(letter.label),
