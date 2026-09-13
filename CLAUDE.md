@@ -84,6 +84,21 @@ would be tidier than a manual disable, but the `gh` token lacks the `workflow`
 scope, so `.github/workflows/**` cannot be written via the API (404). Run
 `gh auth refresh -s workflow` on the machine to unblock that.
 
+### The review check certifies nothing
+
+Repo variable `AISDLC_REVIEW_STUB_AUTOPASS=true` is set (DEC-0004), so
+`ai-sdlc-review.yml`'s `Post Review Results` check reports success **without any
+review running in CI**. It shipped as a stub that failed closed, and since it was
+never a required check its red status blocked nothing — it only made every PR read
+UNSTABLE, which trains you to ignore check colour.
+
+Review actually happens in two places: the maintainer reading the PR before
+clicking merge (DEC-0003), and the reviewer subagents of `/ai-sdlc execute`,
+which run locally and write DSSE verdicts to `.ai-sdlc/verdicts/`.
+
+**If CI-side review is ever wired up, unset this variable in the same change** —
+otherwise the stub's success masks the real result.
+
 ### Commit signing
 
 Commits are signed via 1Password (`gpg.format ssh`, `commit.gpgsign true`,
