@@ -20,4 +20,23 @@ void main() {
     );
     expect(find.text('Learn to read music'), findsOneWidget);
   });
+  testWidgets('both renderer harnesses are reachable from the home screen', (
+    WidgetTester tester,
+  ) async {
+    tester.view.physicalSize = const Size(800, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(const JemNotesApp());
+    await tester.tap(find.text('Staff renderer'));
+    await tester.pumpAndSettle();
+    expect(find.text('C4 · treble'), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Keyboard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Press a key'), findsOneWidget);
+  });
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'src/keyboard/keyboard_harness_page.dart';
 import 'src/staff/staff_harness_page.dart';
 
 void main() => runApp(const JemNotesApp());
@@ -50,13 +51,27 @@ class HomePage extends StatelessWidget {
               const SizedBox(height: 24),
               // Development affordance, not part of the exercise: lets the
               // staff renderer be checked against real sheet music on a device.
-              OutlinedButton(
-                onPressed: () => Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => const StaffHarnessPage(),
+              Wrap(
+                spacing: 12,
+                alignment: WrapAlignment.center,
+                children: <Widget>[
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const StaffHarnessPage(),
+                      ),
+                    ),
+                    child: const Text('Staff renderer'),
                   ),
-                ),
-                child: const Text('Staff renderer'),
+                  OutlinedButton(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                        builder: (_) => const KeyboardHarnessPage(),
+                      ),
+                    ),
+                    child: const Text('Keyboard'),
+                  ),
+                ],
               ),
             ],
           ),

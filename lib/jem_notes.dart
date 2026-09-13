@@ -1,6 +1,10 @@
 /// Public surface of the app's music and rendering primitives.
 library;
 
+export 'src/keyboard/keyboard_harness_page.dart';
+export 'src/keyboard/piano_key.dart';
+export 'src/keyboard/piano_keyboard.dart';
+export 'src/keyboard/piano_keyboard_layout.dart';
 export 'src/music/clef.dart';
 export 'src/music/pitch.dart';
 export 'src/staff/staff_geometry.dart';
