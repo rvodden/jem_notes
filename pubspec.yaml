@@ -57,6 +57,18 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  assets:
+    - assets/fonts/OFL.txt
+
+  fonts:
+    # Bravura is the SMuFL reference font (Steinberg, SIL OFL 1.1). One em is
+    # four staff spaces, which is what lets StaffGeometry size every glyph
+    # correctly from a single staffSpace value. Licence vendored alongside it
+    # and shipped as an asset so the app can display it.
+    - family: Bravura
+      fonts:
+        - asset: assets/fonts/Bravura.otf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg
