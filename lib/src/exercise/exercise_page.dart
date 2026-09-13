@@ -243,7 +243,7 @@ class _LetterButtons extends StatelessWidget {
                     ?.copyWith(fontWeight: FontWeight.w600),
               ),
               onPressed: revealed != null ? null : () => onPressed(letter),
-              child: Text(letter.label),
+              child: Text(letter.displayLabel),
             ),
           ),
       ],

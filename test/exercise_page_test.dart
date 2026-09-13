@@ -39,7 +39,9 @@ Future<void> _tapKeyFor(WidgetTester tester, Pitch pitch) async {
 Future<void> _answerCorrectly(WidgetTester tester) async {
   final Pitch pitch = _shownPitch(tester);
   await _tapKeyFor(tester, pitch);
-  await tester.tap(find.widgetWithText(FilledButton, pitch.letter.label));
+  await tester.tap(
+    find.widgetWithText(FilledButton, pitch.letter.displayLabel),
+  );
   await tester.pumpAndSettle();
 }
 
@@ -110,7 +112,9 @@ void main() {
     final NoteLetter wrongLetter = Level.one.pitches
         .map((Pitch p) => p.letter)
         .firstWhere((NoteLetter l) => l != first.letter);
-    await tester.tap(find.widgetWithText(FilledButton, wrongLetter.label));
+    await tester.tap(
+      find.widgetWithText(FilledButton, wrongLetter.displayLabel),
+    );
     await tester.pumpAndSettle();
 
     while (find.byType(StaffView).evaluate().isNotEmpty) {
@@ -169,5 +173,37 @@ void main() {
       find.byType(ExercisePage),
       matchesGoldenFile('goldens/exercise-summary.png'),
     );
+  });
+  testWidgets('the answer buttons are lower case', (WidgetTester tester) async {
+    // A six-year-old reads lower case more fluently than capitals, so the
+    // child-facing surface uses it even though note names are conventionally
+    // capitals. The model keeps the canonical form — see Pitch.scientificName.
+    await _pump(tester);
+    await _tapKeyFor(tester, _shownPitch(tester));
+
+    final List<String> labels = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(FilledButton),
+            matching: find.byType(Text),
+          ),
+        )
+        .map((Text t) => t.data ?? '')
+        .toList();
+
+    expect(labels, hasLength(3));
+    for (final String label in labels) {
+      expect(
+        label,
+        label.toLowerCase(),
+        reason: '"$label" should be lower case',
+      );
+      expect(
+        RegExp(r'^[a-g]$').hasMatch(label),
+        isTrue,
+        reason: 'got "$label"',
+      );
+    }
+    expect(labels.toSet(), <String>{'b', 'c', 'd'});
   });
 }

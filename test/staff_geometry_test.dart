@@ -166,4 +166,14 @@ void main() {
       },
     );
   });
+  group('letter casing', () {
+    test('the model is canonical, the child-facing label is lower case', () {
+      expect(NoteLetter.c.label, 'C');
+      expect(NoteLetter.c.displayLabel, 'c');
+      expect(Pitch.middleC.scientificName, 'C4');
+      for (final NoteLetter letter in NoteLetter.values) {
+        expect(letter.displayLabel, letter.label.toLowerCase());
+      }
+    });
+  });
 }
