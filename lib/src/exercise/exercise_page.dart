@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../keyboard/piano_key.dart';
+import '../progress/progress.dart';
+import '../progress/progress_controller.dart';
 import '../keyboard/piano_keyboard.dart';
 import '../music/pitch.dart';
 import '../staff/staff_view.dart';
@@ -21,12 +23,17 @@ const Duration kRevealDuration = Duration(milliseconds: 1100);
 class ExercisePage extends StatefulWidget {
   const ExercisePage({
     this.level,
+    this.progress,
     this.roundLength = kDefaultRoundLength,
     this.revealDuration = kRevealDuration,
     super.key,
   });
 
   final Level? level;
+
+  /// Progress across sessions. Without one the exercise still runs — it just
+  /// forgets everything, which is what the widget tests want.
+  final ProgressController? progress;
   final int roundLength;
 
   /// Overridable so tests need not wait out the reveal in real time.
@@ -39,6 +46,19 @@ class ExercisePage extends StatefulWidget {
 class _ExercisePageState extends State<ExercisePage> {
   late ExerciseRound _round;
   Timer? _revealTimer;
+  Level? _chosenLevel;
+  RoundRecord? _lastRecord;
+  bool _recording = false;
+
+  ProgressController? get _progress => widget.progress;
+
+  /// The level a new round should use: whatever he last chose, else the
+  /// highest he has unlocked, else level 1.
+  Level get _levelForRound =>
+      widget.level ??
+      _chosenLevel ??
+      Level.byNumber(_progress?.highestUnlockedLevel ?? 1) ??
+      Level.one;
 
   @override
   void initState() {
@@ -48,9 +68,13 @@ class _ExercisePageState extends State<ExercisePage> {
 
   void _start() {
     _revealTimer?.cancel();
+    _lastRecord = null;
+    final Level level = _levelForRound;
     _round = ExerciseRound(
-      level: widget.level ?? Level.one,
+      level: level,
       roundLength: widget.roundLength,
+      initialMissCounts:
+          _progress?.missCountsFor(level) ?? const <Pitch, int>{},
     )..addListener(_onRoundChanged);
     setState(() {});
   }
@@ -62,7 +86,20 @@ class _ExercisePageState extends State<ExercisePage> {
         _round.dismissReveal();
       });
     }
+    if (_round.isComplete && !_recording && _lastRecord == null) {
+      _recordFinishedRound();
+    }
     setState(() {});
+  }
+
+  Future<void> _recordFinishedRound() async {
+    final ProgressController? progress = _progress;
+    if (progress == null) return;
+    _recording = true;
+    final RoundRecord record = await progress.recordRound(_round);
+    _recording = false;
+    if (!mounted) return;
+    setState(() => _lastRecord = record);
   }
 
   @override
@@ -88,22 +125,48 @@ class _ExercisePageState extends State<ExercisePage> {
   Widget _buildSummary(BuildContext context) {
     final RoundSummary summary = _round.summary;
     final TextTheme text = Theme.of(context).textTheme;
+    final RoundRecord? record = _lastRecord;
+    final ProgressController? progress = _progress;
+
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: <Widget>[
             Text('Well done', style: text.displaySmall),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
+            if (record != null) _Stars(count: record.stars),
+            if (record != null) const SizedBox(height: 16),
             Text(
               'You got ${summary.firstTimeCorrect} of ${summary.asked} '
               'right first time.',
               style: text.titleMedium,
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 32),
+            if (progress != null && progress.streak > 0) ...<Widget>[
+              const SizedBox(height: 10),
+              Text(
+                progress.streak == 1
+                    ? 'First day of practice'
+                    : '${progress.streak} days in a row',
+                style: text.bodyLarge,
+              ),
+            ],
+            const SizedBox(height: 28),
             FilledButton(onPressed: _start, child: const Text('Go again')),
+            if (progress != null &&
+                progress.unlockedLevels.length > 1) ...<Widget>[
+              const SizedBox(height: 28),
+              _LevelChooser(
+                levels: progress.unlockedLevels,
+                selected: _levelForRound.number,
+                onSelected: (Level level) {
+                  setState(() => _chosenLevel = level);
+                  _start();
+                },
+              ),
+            ],
           ],
         ),
       ),
@@ -246,6 +309,73 @@ class _LetterButtons extends StatelessWidget {
               child: Text(letter.displayLabel),
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Stars for the round just finished. Accuracy only — there is no clock.
+class _Stars extends StatelessWidget {
+  const _Stars({required this.count});
+
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: <Widget>[
+        for (int i = 0; i < 3; i++)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(
+              i < count ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 48,
+              color: i < count
+                  ? const Color(0xFFE9A93C)
+                  : Theme.of(context).colorScheme.outlineVariant,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// Picks which level the next round uses.
+///
+/// Only ever shows unlocked levels: a locked one is not rendered at all, so
+/// there is nothing to tap hopefully and nothing to explain. It appears only
+/// once there is a choice to make.
+class _LevelChooser extends StatelessWidget {
+  const _LevelChooser({
+    required this.levels,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final List<Level> levels;
+  final int selected;
+  final ValueChanged<Level> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: <Widget>[
+        Text('Level', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.center,
+          children: <Widget>[
+            for (final Level level in levels)
+              ChoiceChip(
+                label: Text('${level.number}'),
+                selected: level.number == selected,
+                onSelected: (_) => onSelected(level),
+              ),
+          ],
+        ),
       ],
     );
   }

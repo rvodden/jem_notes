@@ -17,12 +17,21 @@ import '../music/pitch.dart';
 ///   broken app rather than as practice — and he stops reading the staff and
 ///   just repeats his last answer.
 class PitchSelector {
-  PitchSelector({required List<Pitch> pitches, Random? random})
-    : _pitches = List<Pitch>.unmodifiable(pitches),
-      _random = random ?? Random() {
+  PitchSelector({
+    required List<Pitch> pitches,
+    Random? random,
+    Map<Pitch, int> initialMissCounts = const <Pitch, int>{},
+  }) : _pitches = List<Pitch>.unmodifiable(pitches),
+       _random = random ?? Random() {
     if (_pitches.isEmpty) {
       throw ArgumentError.value(pitches, 'pitches', 'must not be empty');
     }
+    // Carried over from previous rounds, so a note he struggled with
+    // yesterday still comes round more often today. Without this the weighting
+    // resets every session and never accumulates into real practice.
+    initialMissCounts.forEach((Pitch pitch, int count) {
+      _missCount[pitch] = count.clamp(0, _maxMissBonus);
+    });
   }
 
   final List<Pitch> _pitches;
