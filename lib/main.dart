@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'src/staff/staff_harness_page.dart';
+
 void main() => runApp(const JemNotesApp());
 
 /// Root of the app.
@@ -44,6 +46,17 @@ class HomePage extends StatelessWidget {
                 'First exercise: name the note, then find it on the keyboard.',
                 style: text.bodyMedium,
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              // Development affordance, not part of the exercise: lets the
+              // staff renderer be checked against real sheet music on a device.
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                    builder: (_) => const StaffHarnessPage(),
+                  ),
+                ),
+                child: const Text('Staff renderer'),
               ),
             ],
           ),

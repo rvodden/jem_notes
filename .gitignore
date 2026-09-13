@@ -51,3 +51,6 @@ coverage/
 
 # Linux desktop
 **/linux/flutter/ephemeral/
+
+# ai-sdlc CLI scratch output (DoR calibration telemetry, etc.)
+artifacts/
