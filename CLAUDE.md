@@ -46,6 +46,25 @@ install — so without that config the hook never fires and CI is the only gate.
 (`/usr/bin/env: 'bash\r': No such file or directory`). A Linux SDK inside WSL is
 required to build from this shell.
 
+## RFCs and backlog tasks
+
+RFCs live in **`spec/rfcs/`**, pinned by `.ai-sdlc/adopter-authoring.yaml`. This
+is not cosmetic: `cli-rfc init` defaults to `rfcs/`, but the Definition-of-Ready
+gate's reference resolver looks for RFC IDs **only** under `spec/rfcs/` and
+hard-fails any task citing one otherwise. The pin makes both tools agree; without
+it the next `rfc init` recreates `rfcs/` and the index silently prefers it,
+splitting RFCs across two directories.
+
+Filenames must start with `RFC-NNNN-` or `cli-rfc index` ignores them.
+
+Backlog tasks are `backlog/tasks/<id-lower> - <slug>.md` — note the space before
+the hyphen, which `/ai-sdlc execute` globs on. Before committing a new task run:
+
+```bash
+cli-dor-check --task "backlog/tasks/<file>.md"   # silence means clean
+cli-backlog-verify                                # duplicate-id check
+```
+
 ## AI-SDLC quality gate
 
 This repo is bootstrapped with the AI-SDLC framework. The single PR-ready merge
