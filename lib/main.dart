@@ -1,15 +1,13 @@
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 
+import 'src/exercise/exercise_page.dart';
 import 'src/keyboard/keyboard_harness_page.dart';
 import 'src/staff/staff_harness_page.dart';
 
 void main() => runApp(const JemNotesApp());
 
 /// Root of the app.
-///
-/// Deliberately thin: the first exercise (identify a note's letter name and
-/// its position on a piano keyboard) lands as its own widget behind this
-/// shell, so this file stays a wiring point rather than growing UI of its own.
 class JemNotesApp extends StatelessWidget {
   const JemNotesApp({super.key});
 
@@ -20,63 +18,57 @@ class JemNotesApp extends StatelessWidget {
     return MaterialApp(
       title: title,
       theme: ThemeData(colorSchemeSeed: Colors.indigo, useMaterial3: true),
-      home: const HomePage(),
+      // Straight into a round: no menu, no tutorial, nothing to choose.
+      // The whole budget is five minutes between lessons (RFC-0001 D13), and a
+      // six-year-old should not have to read his way past a home screen to
+      // start practising.
+      home: const _Home(),
     );
   }
 }
 
-/// Placeholder landing screen, replaced by the exercise picker once there is
-/// more than one exercise to pick from.
-class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+class _Home extends StatelessWidget {
+  const _Home();
 
   @override
   Widget build(BuildContext context) {
-    final TextTheme text = Theme.of(context).textTheme;
-    return Scaffold(
-      appBar: AppBar(title: const Text(JemNotesApp.title)),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              Text('Learn to read music', style: text.headlineSmall),
-              const SizedBox(height: 8),
-              Text(
-                'First exercise: name the note, then find it on the keyboard.',
-                style: text.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 24),
-              // Development affordance, not part of the exercise: lets the
-              // staff renderer be checked against real sheet music on a device.
-              Wrap(
-                spacing: 12,
-                alignment: WrapAlignment.center,
-                children: <Widget>[
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const StaffHarnessPage(),
-                      ),
+    return Stack(
+      children: <Widget>[
+        const ExercisePage(),
+        // Developer affordance only, and absent from release builds: the two
+        // renderer harnesses, for checking the staff against real sheet music
+        // and trying the keyboard's hit targets with a real finger.
+        if (kDebugMode)
+          Positioned(
+            top: 0,
+            right: 0,
+            child: SafeArea(
+              child: PopupMenuButton<String>(
+                icon: const Icon(Icons.bug_report_outlined, size: 18),
+                tooltip: 'Developer harnesses',
+                onSelected: (String value) {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => value == 'staff'
+                          ? const StaffHarnessPage()
+                          : const KeyboardHarnessPage(),
                     ),
-                    child: const Text('Staff renderer'),
+                  );
+                },
+                itemBuilder: (_) => const <PopupMenuEntry<String>>[
+                  PopupMenuItem<String>(
+                    value: 'staff',
+                    child: Text('Staff renderer'),
                   ),
-                  OutlinedButton(
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute<void>(
-                        builder: (_) => const KeyboardHarnessPage(),
-                      ),
-                    ),
-                    child: const Text('Keyboard'),
+                  PopupMenuItem<String>(
+                    value: 'keyboard',
+                    child: Text('Keyboard'),
                   ),
                 ],
               ),
-            ],
+            ),
           ),
-        ),
-      ),
+      ],
     );
   }
 }

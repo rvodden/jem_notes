@@ -12,12 +12,18 @@ class PianoKeyboardColors {
     this.whiteKeyInactive = const Color(0xFFE7E7E4),
     this.blackKey = const Color(0xFF1A1C1F),
     this.outline = const Color(0xFF2B2F35),
+    this.revealedKey = const Color(0xFFA8D5BA),
   });
 
   final Color whiteKey;
   final Color whiteKeyInactive;
   final Color blackKey;
   final Color outline;
+
+  /// Fill for the key pointed out after a wrong answer. Deliberately a calm
+  /// green rather than an alarming red: RFC-0001 reveals the right answer, it
+  /// does not mark him wrong.
+  final Color revealedKey;
 }
 
 /// A two-octave piano keyboard, C3-C5, that reports which key was pressed.
@@ -33,6 +39,7 @@ class PianoKeyboard extends StatelessWidget {
   const PianoKeyboard({
     required this.activePitches,
     required this.onKeyPressed,
+    this.revealedPitch,
     this.colors = const PianoKeyboardColors(),
     super.key,
   });
@@ -46,6 +53,10 @@ class PianoKeyboard extends StatelessWidget {
 
   /// Called with the key the child pressed. Never fires for an inactive key.
   final ValueChanged<PianoKey> onKeyPressed;
+
+  /// A key to point out, shown after a wrong answer. Not an error state — it
+  /// is the answer, shown calmly.
+  final Pitch? revealedPitch;
 
   final PianoKeyboardColors colors;
 
@@ -71,6 +82,7 @@ class PianoKeyboard extends StatelessWidget {
             painter: _KeyboardPainter(
               layout: layout,
               isActive: _isActive,
+              revealedPitch: revealedPitch,
               colors: colors,
             ),
             size: size,
@@ -85,11 +97,13 @@ class _KeyboardPainter extends CustomPainter {
   _KeyboardPainter({
     required this.layout,
     required this.isActive,
+    required this.revealedPitch,
     required this.colors,
   });
 
   final PianoKeyboardLayout layout;
   final bool Function(PianoKey) isActive;
+  final Pitch? revealedPitch;
   final PianoKeyboardColors colors;
 
   @override
@@ -107,13 +121,12 @@ class _KeyboardPainter extends CustomPainter {
         bottomLeft: Radius.circular(radius),
         bottomRight: Radius.circular(radius),
       );
-      canvas.drawRRect(
-        key,
-        Paint()
-          ..color = isActive(placement.key)
-              ? colors.whiteKey
-              : colors.whiteKeyInactive,
-      );
+      final Color fill = placement.key.naturalBelow == revealedPitch
+          ? colors.revealedKey
+          : isActive(placement.key)
+          ? colors.whiteKey
+          : colors.whiteKeyInactive;
+      canvas.drawRRect(key, Paint()..color = fill);
       canvas.drawRRect(key, stroke);
     }
 
@@ -138,5 +151,6 @@ class _KeyboardPainter extends CustomPainter {
   bool shouldRepaint(_KeyboardPainter oldDelegate) =>
       oldDelegate.layout.size != layout.size ||
       oldDelegate.isActive != isActive ||
+      oldDelegate.revealedPitch != revealedPitch ||
       oldDelegate.colors != colors;
 }
