@@ -1,0 +1,11 @@
+# Adopter authoring config (RFC-0036).
+#
+# rfcDir is pinned to spec/rfcs/ because two parts of the framework disagree:
+# `cli-rfc init` defaults to writing rfcs/, but the Definition-of-Ready gate's
+# named-thing reference resolver looks for RFC IDs ONLY under spec/rfcs/ and
+# hard-fails a task that cites one otherwise ("no spec/rfcs/ dir"). `cli-rfc
+# index` reads spec/rfcs/ happily via its spec-rfcs-fallback, so pinning here
+# makes both tools agree. Without this, the next `rfc init` recreates rfcs/ and
+# the index silently prefers it, splitting the RFCs across two directories.
+rfc-scaffold:
+  rfcDir: spec/rfcs
