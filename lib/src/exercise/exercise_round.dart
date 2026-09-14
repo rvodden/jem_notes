@@ -80,6 +80,18 @@ class ExerciseRound extends ChangeNotifier {
       Map<Pitch, int>.unmodifiable(_missedCount);
 
   Question? _current;
+
+  /// The letter buttons to offer, in the order they should appear.
+  ///
+  /// **Shuffled every question, deliberately.** Sorted alphabetically they run
+  /// b, c, d — which at level 1 is exactly the order the notes ascend on the
+  /// staff, so the lowest note is always the leftmost button. A child spots
+  /// that in minutes and answers by position without reading anything, which
+  /// is the same shortcut as the finger numbers this app exists to displace.
+  List<NoteLetter> _letterOptions = <NoteLetter>[];
+
+  List<NoteLetter> get letterOptions =>
+      List<NoteLetter>.unmodifiable(_letterOptions);
   AnswerStep _step = AnswerStep.locate;
   Reveal _reveal = Reveal.none;
   int _asked = 0;
@@ -144,6 +156,7 @@ class ExerciseRound extends ChangeNotifier {
     _awaitingRequeue.remove(pitch);
     _current = Question.forPitch(pitch, _random);
     _askedCount[pitch] = (_askedCount[pitch] ?? 0) + 1;
+    _letterOptions = _shuffledLetters();
     _asked++;
     notifyListeners();
   }
@@ -177,6 +190,15 @@ class ExerciseRound extends ChangeNotifier {
     _recordMiss();
     _reveal = Reveal.correctName;
     notifyListeners();
+  }
+
+  List<NoteLetter> _shuffledLetters() {
+    final List<NoteLetter> letters = level.pitches
+        .map((Pitch p) => p.letter)
+        .toSet()
+        .toList();
+    letters.shuffle(_random);
+    return letters;
   }
 
   void _recordMiss() {

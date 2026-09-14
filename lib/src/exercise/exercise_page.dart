@@ -203,10 +203,7 @@ class _ExercisePageState extends State<ExercisePage> {
                     style: Theme.of(context).textTheme.titleMedium,
                   )
                 : _LetterButtons(
-                    letters: round.level.pitches
-                        .map((Pitch p) => p.letter)
-                        .toSet()
-                        .toList(),
+                    letters: round.letterOptions,
                     revealed: round.reveal == Reveal.correctName
                         ? question.pitch.letter
                         : null,
@@ -281,14 +278,14 @@ class _LetterButtons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ColorScheme scheme = Theme.of(context).colorScheme;
-    final List<NoteLetter> sorted = <NoteLetter>[...letters]
-      ..sort((NoteLetter a, NoteLetter b) => a.label.compareTo(b.label));
+    // Rendered in the order given, NOT sorted: the round shuffles them so the
+    // buttons cannot be answered by position instead of by reading.
     return Wrap(
       spacing: 16,
       runSpacing: 12,
       alignment: WrapAlignment.center,
       children: <Widget>[
-        for (final NoteLetter letter in sorted)
+        for (final NoteLetter letter in letters)
           SizedBox(
             width: 84,
             height: 84,
