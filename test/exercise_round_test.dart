@@ -346,4 +346,65 @@ void main() {
       expect(round.summary.asked, 12);
     });
   });
+  group('the letter buttons cannot be answered by position', () {
+    test('their order changes between questions', () {
+      // Sorted, they run b, c, d — which at level 1 is exactly the order the
+      // notes ascend, so the lowest note would always be the leftmost button.
+      // A child spots that in minutes and stops reading the staff.
+      final ExerciseRound round = ExerciseRound(
+        level: Level.one,
+        roundLength: 30,
+        random: Random(21),
+      );
+      final Set<String> ordersSeen = <String>{};
+      while (!round.isComplete) {
+        ordersSeen.add(
+          round.letterOptions.map((NoteLetter l) => l.label).join(),
+        );
+        answerCorrectly(round);
+      }
+      expect(
+        ordersSeen.length,
+        greaterThan(1),
+        reason: 'a fixed order is answerable by position alone',
+      );
+    });
+
+    test('they are not always in ascending order', () {
+      final ExerciseRound round = ExerciseRound(
+        level: Level.one,
+        roundLength: 30,
+        random: Random(22),
+      );
+      int ascending = 0;
+      int total = 0;
+      while (!round.isComplete) {
+        final List<NoteLetter> options = round.letterOptions;
+        final List<NoteLetter> sorted = <NoteLetter>[...options]
+          ..sort((NoteLetter a, NoteLetter b) => a.label.compareTo(b.label));
+        if (options.join() == sorted.join()) ascending++;
+        total++;
+        answerCorrectly(round);
+      }
+      expect(ascending, lessThan(total));
+    });
+
+    test('every option is offered, exactly once, including the answer', () {
+      final ExerciseRound round = ExerciseRound(
+        level: Level.one,
+        roundLength: 20,
+        random: Random(23),
+      );
+      while (!round.isComplete) {
+        final List<NoteLetter> options = round.letterOptions;
+        expect(options.toSet(), hasLength(options.length));
+        expect(
+          options.toSet(),
+          Level.one.pitches.map((Pitch p) => p.letter).toSet(),
+        );
+        expect(options, contains(round.current!.pitch.letter));
+        answerCorrectly(round);
+      }
+    });
+  });
 }

@@ -6,16 +6,25 @@ const Size kTablet = Size(1024, 768);
 
 /// Zero-length reveals keep the widget tests deterministic without waiting out
 /// the real 1.1s pause.
-Widget _app({int roundLength = 12}) => MaterialApp(
-  theme: ThemeData(useMaterial3: true),
-  home: ExercisePage(roundLength: roundLength, revealDuration: Duration.zero),
-);
+Widget _app({int roundLength = 12, ProgressController? progress}) =>
+    MaterialApp(
+      theme: ThemeData(useMaterial3: true),
+      home: ExercisePage(
+        roundLength: roundLength,
+        revealDuration: Duration.zero,
+        progress: progress,
+      ),
+    );
 
-Future<void> _pump(WidgetTester tester, {int roundLength = 12}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  int roundLength = 12,
+  ProgressController? progress,
+}) async {
   tester.view.physicalSize = kTablet;
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
-  await tester.pumpWidget(_app(roundLength: roundLength));
+  await tester.pumpWidget(_app(roundLength: roundLength, progress: progress));
   await tester.pumpAndSettle();
 }
 
@@ -205,5 +214,159 @@ void main() {
       );
     }
     expect(labels.toSet(), <String>{'b', 'c', 'd'});
+  });
+  group('progress on the summary', () {
+    Future<ProgressController> loaded({
+      Progress seed = const Progress(),
+      DateTime? today,
+    }) async {
+      final ProgressController controller = ProgressController(
+        store: InMemoryProgressStore(seed),
+        now: () => today ?? DateTime(2026, 9, 13),
+      );
+      await controller.load();
+      return controller;
+    }
+
+    testWidgets('shows stars for the round just played', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loaded();
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(find.byIcon(Icons.star_rounded), findsNWidgets(3));
+      expect(find.byIcon(Icons.star_outline_rounded), findsNothing);
+    });
+
+    testWidgets('a missed note costs a star but not the round', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loaded();
+      await _pump(tester, roundLength: 2, progress: progress);
+
+      final Pitch first = _shownPitch(tester);
+      await _tapKeyFor(tester, first);
+      await tester.tap(
+        find.widgetWithText(
+          FilledButton,
+          Level.one.pitches
+              .map((Pitch p) => p.letter)
+              .firstWhere((NoteLetter l) => l != first.letter)
+              .displayLabel,
+        ),
+      );
+      await tester.pumpAndSettle();
+      while (find.byType(StaffView).evaluate().isNotEmpty) {
+        await _answerCorrectly(tester);
+      }
+
+      expect(find.byIcon(Icons.star_rounded), findsNWidgets(1));
+      expect(find.byIcon(Icons.star_outline_rounded), findsNWidgets(2));
+    });
+
+    testWidgets('shows the streak in days, counting turning up', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loaded(
+        seed: Progress(
+          rounds: <RoundRecord>[
+            // Yesterday, and badly — it still counts toward the streak.
+            RoundRecord(
+              level: 1,
+              day: DateTime(2026, 9, 12),
+              asked: 12,
+              firstTimeCorrect: 0,
+            ),
+          ],
+        ),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(find.text('2 days in a row'), findsOneWidget);
+    });
+
+    testWidgets('no level chooser until there is a choice to make', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loaded();
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(find.text('Level'), findsNothing);
+      expect(find.byType(ChoiceChip), findsNothing);
+    });
+
+    testWidgets('the chooser offers unlocked levels only', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loaded(
+        seed: Progress(
+          rounds: <RoundRecord>[
+            RoundRecord(
+              level: 1,
+              day: DateTime(2026, 9, 11),
+              asked: 12,
+              firstTimeCorrect: 12,
+            ),
+            RoundRecord(
+              level: 1,
+              day: DateTime(2026, 9, 12),
+              asked: 12,
+              firstTimeCorrect: 12,
+            ),
+          ],
+        ),
+      );
+      expect(progress.highestUnlockedLevel, 2);
+
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(find.byType(ChoiceChip), findsNWidgets(2));
+      expect(find.widgetWithText(ChoiceChip, '1'), findsOneWidget);
+      expect(find.widgetWithText(ChoiceChip, '2'), findsOneWidget);
+      // Locked levels are not rendered at all: nothing to tap hopefully.
+      expect(find.widgetWithText(ChoiceChip, '3'), findsNothing);
+      expect(find.widgetWithText(ChoiceChip, '8'), findsNothing);
+    });
+
+    testWidgets('choosing a level starts a round at it', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loaded(
+        seed: Progress(
+          rounds: <RoundRecord>[
+            RoundRecord(
+              level: 1,
+              day: DateTime(2026, 9, 11),
+              asked: 12,
+              firstTimeCorrect: 12,
+            ),
+            RoundRecord(
+              level: 1,
+              day: DateTime(2026, 9, 12),
+              asked: 12,
+              firstTimeCorrect: 12,
+            ),
+          ],
+        ),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      await tester.tap(find.widgetWithText(ChoiceChip, '1'));
+      await tester.pumpAndSettle();
+
+      // Back in a round, and restricted to level 1's three notes.
+      expect(find.byType(StaffView), findsOneWidget);
+      expect(Level.one.pitchSet, contains(_shownPitch(tester)));
+    });
   });
 }

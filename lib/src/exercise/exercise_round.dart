@@ -45,8 +45,13 @@ class ExerciseRound extends ChangeNotifier {
     required this.level,
     this.roundLength = kDefaultRoundLength,
     Random? random,
+    Map<Pitch, int> initialMissCounts = const <Pitch, int>{},
   }) : _random = random ?? Random(),
-       _selector = PitchSelector(pitches: level.pitches, random: random) {
+       _selector = PitchSelector(
+         pitches: level.pitches,
+         random: random,
+         initialMissCounts: initialMissCounts,
+       ) {
     _askNext();
   }
 
@@ -63,7 +68,30 @@ class ExerciseRound extends ChangeNotifier {
   /// entries — see [_askNext].
   final Set<Pitch> _awaitingRequeue = <Pitch>{};
 
+  /// Per-note outcomes for this round: how often each was asked, and how often
+  /// it was missed. Read at the end of a round and folded into the stored
+  /// history, so weighting accumulates rather than resetting each session.
+  final Map<Pitch, int> _askedCount = <Pitch, int>{};
+  final Map<Pitch, int> _missedCount = <Pitch, int>{};
+
+  Map<Pitch, int> get askedPerPitch =>
+      Map<Pitch, int>.unmodifiable(_askedCount);
+  Map<Pitch, int> get missedPerPitch =>
+      Map<Pitch, int>.unmodifiable(_missedCount);
+
   Question? _current;
+
+  /// The letter buttons to offer, in the order they should appear.
+  ///
+  /// **Shuffled every question, deliberately.** Sorted alphabetically they run
+  /// b, c, d — which at level 1 is exactly the order the notes ascend on the
+  /// staff, so the lowest note is always the leftmost button. A child spots
+  /// that in minutes and answers by position without reading anything, which
+  /// is the same shortcut as the finger numbers this app exists to displace.
+  List<NoteLetter> _letterOptions = <NoteLetter>[];
+
+  List<NoteLetter> get letterOptions =>
+      List<NoteLetter>.unmodifiable(_letterOptions);
   AnswerStep _step = AnswerStep.locate;
   Reveal _reveal = Reveal.none;
   int _asked = 0;
@@ -127,6 +155,8 @@ class ExerciseRound extends ChangeNotifier {
     final Pitch pitch = _selector.next(require: require);
     _awaitingRequeue.remove(pitch);
     _current = Question.forPitch(pitch, _random);
+    _askedCount[pitch] = (_askedCount[pitch] ?? 0) + 1;
+    _letterOptions = _shuffledLetters();
     _asked++;
     notifyListeners();
   }
@@ -162,8 +192,22 @@ class ExerciseRound extends ChangeNotifier {
     notifyListeners();
   }
 
+  List<NoteLetter> _shuffledLetters() {
+    final List<NoteLetter> letters = level.pitches
+        .map((Pitch p) => p.letter)
+        .toSet()
+        .toList();
+    letters.shuffle(_random);
+    return letters;
+  }
+
   void _recordMiss() {
     if (_current == null) return;
+    // Counted once per question, however many steps were fumbled: the unit of
+    // difficulty is the note, not the tap.
+    if (!_missedThisQuestion) {
+      _missedCount[_current!.pitch] = (_missedCount[_current!.pitch] ?? 0) + 1;
+    }
     _missedThisQuestion = true;
     _selector.recordMiss(_current!.pitch);
     _awaitingRequeue.add(_current!.pitch);

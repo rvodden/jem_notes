@@ -8,7 +8,9 @@ void main() {
     tester.view.physicalSize = const Size(1024, 768);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
-    await tester.pumpWidget(const JemNotesApp());
+    await tester.pumpWidget(
+      JemNotesApp(progress: ProgressController(store: InMemoryProgressStore())),
+    );
     await tester.pumpAndSettle();
   }
 
