@@ -228,7 +228,7 @@ void main() {
       return controller;
     }
 
-    testWidgets('shows stars for the round just played', (
+    testWidgets('shows paw prints for the round just played', (
       WidgetTester tester,
     ) async {
       final ProgressController progress = await loaded();
@@ -236,11 +236,14 @@ void main() {
       await _answerCorrectly(tester);
       await _answerCorrectly(tester);
 
-      expect(find.byIcon(Icons.star_rounded), findsNWidgets(3));
-      expect(find.byIcon(Icons.star_outline_rounded), findsNothing);
+      final List<PawPrint> paws = tester
+          .widgetList<PawPrint>(find.byType(PawPrint))
+          .toList();
+      expect(paws, hasLength(3));
+      expect(paws.every((PawPrint p) => p.filled), isTrue);
     });
 
-    testWidgets('a missed note costs a star but not the round', (
+    testWidgets('a missed note costs a paw but not the round', (
       WidgetTester tester,
     ) async {
       final ProgressController progress = await loaded();
@@ -262,8 +265,11 @@ void main() {
         await _answerCorrectly(tester);
       }
 
-      expect(find.byIcon(Icons.star_rounded), findsNWidgets(1));
-      expect(find.byIcon(Icons.star_outline_rounded), findsNWidgets(2));
+      final List<PawPrint> paws = tester
+          .widgetList<PawPrint>(find.byType(PawPrint))
+          .toList();
+      expect(paws.where((PawPrint p) => p.filled), hasLength(1));
+      expect(paws.where((PawPrint p) => !p.filled), hasLength(2));
     });
 
     testWidgets('shows the streak in days, counting turning up', (
@@ -367,6 +373,137 @@ void main() {
       // Back in a round, and restricted to level 1's three notes.
       expect(find.byType(StaffView), findsOneWidget);
       expect(Level.one.pitchSet, contains(_shownPitch(tester)));
+    });
+  });
+  group('cats on the summary', () {
+    Future<ProgressController> loadedWith(Progress seed, DateTime today) async {
+      final ProgressController c = ProgressController(
+        store: InMemoryProgressStore(seed),
+        now: () => today,
+      );
+      await c.load();
+      return c;
+    }
+
+    testWidgets('a companion cat is there from the very first round', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loadedWith(
+        const Progress(),
+        DateTime(2026, 9, 13),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(find.text('Smudge'), findsOneWidget);
+      expect(find.byType(CatView), findsWidgets);
+    });
+
+    testWidgets('a perfect round delights the companion', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loadedWith(
+        const Progress(),
+        DateTime(2026, 9, 13),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      final CatView companion = tester
+          .widgetList<CatView>(find.byType(CatView))
+          .firstWhere((CatView c) => c.size > 100);
+      expect(companion.mood, CatMood.delighted);
+    });
+
+    testWidgets('a bad round leaves the companion pleased, never worse', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loadedWith(
+        const Progress(),
+        DateTime(2026, 9, 13),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+
+      // Miss both questions outright.
+      for (int i = 0; i < 2; i++) {
+        final Pitch shown = _shownPitch(tester);
+        await _tapKeyFor(tester, shown);
+        await tester.tap(
+          find.widgetWithText(
+            FilledButton,
+            Level.one.pitches
+                .map((Pitch p) => p.letter)
+                .firstWhere((NoteLetter l) => l != shown.letter)
+                .displayLabel,
+          ),
+        );
+        await tester.pumpAndSettle();
+      }
+      while (find.byType(StaffView).evaluate().isNotEmpty) {
+        await _answerCorrectly(tester);
+      }
+
+      final CatView companion = tester
+          .widgetList<CatView>(find.byType(CatView))
+          .firstWhere((CatView c) => c.size > 100);
+      expect(
+        companion.mood,
+        CatMood.pleased,
+        reason: 'there is no mood that could look disappointed in him',
+      );
+    });
+
+    testWidgets('meeting a new cat is announced by name and reason', (
+      WidgetTester tester,
+    ) async {
+      // One day short of the two-day streak cat; this round earns it.
+      final ProgressController progress = await loadedWith(
+        Progress(
+          rounds: <RoundRecord>[
+            RoundRecord(
+              level: 1,
+              day: DateTime(2026, 9, 12),
+              asked: 12,
+              firstTimeCorrect: 4,
+            ),
+          ],
+        ),
+        DateTime(2026, 9, 13),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(find.text('You met Biscuit!'), findsOneWidget);
+      expect(find.text('For practising 2 days in a row'), findsOneWidget);
+    });
+
+    testWidgets('the collection shows met and unmet, and what comes next', (
+      WidgetTester tester,
+    ) async {
+      final ProgressController progress = await loadedWith(
+        const Progress(),
+        DateTime(2026, 9, 13),
+      );
+      await _pump(tester, roundLength: 2, progress: progress);
+      await _answerCorrectly(tester);
+      await _answerCorrectly(tester);
+
+      expect(
+        find.text('Your cats — 1 of ${CatCatalogue.all.length}'),
+        findsOneWidget,
+      );
+      // Unmet cats are drawn as silhouettes rather than hidden, so he can see
+      // how many friends are still out there.
+      final List<CatView> shown = tester
+          .widgetList<CatView>(find.byType(CatView))
+          .where((CatView c) => c.size < 60)
+          .toList();
+      expect(shown, hasLength(CatCatalogue.all.length));
+      expect(shown.where((CatView c) => c.faded), isNotEmpty);
+      expect(find.textContaining('Next friend:'), findsOneWidget);
     });
   });
 }

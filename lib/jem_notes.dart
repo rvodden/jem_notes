@@ -1,6 +1,8 @@
 /// Public surface of the app's music and rendering primitives.
 library;
 
+export 'src/cats/cat.dart';
+export 'src/cats/cat_view.dart';
 export 'src/exercise/exercise_page.dart';
 export 'src/exercise/exercise_round.dart';
 export 'src/exercise/level.dart';

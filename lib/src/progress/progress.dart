@@ -140,6 +140,27 @@ class Progress {
     return streak;
   }
 
+  /// The longest run of consecutive practice days ever achieved.
+  ///
+  /// Cats are earned against this rather than the current streak, because a cat
+  /// is never taken away (DEC-0007). Breaking a streak loses the number, not a
+  /// friend.
+  int get longestStreak {
+    final List<DateTime> days = practiceDays;
+    if (days.isEmpty) return 0;
+    int best = 1;
+    int run = 1;
+    for (int i = 1; i < days.length; i++) {
+      if (days[i].difference(days[i - 1]).inDays == 1) {
+        run++;
+        if (run > best) best = run;
+      } else {
+        run = 1;
+      }
+    }
+    return best;
+  }
+
   /// Highest level reached. Level 1 is always available.
   int get highestUnlockedLevel {
     int unlocked = 1;

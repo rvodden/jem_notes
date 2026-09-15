@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../cats/cat.dart';
+import '../cats/cat_view.dart';
 import '../keyboard/piano_key.dart';
 import '../progress/progress.dart';
 import '../progress/progress_controller.dart';
@@ -134,10 +136,12 @@ class _ExercisePageState extends State<ExercisePage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: <Widget>[
+            if (progress != null)
+              _Companion(progress: progress, record: record),
             Text('Well done', style: text.displaySmall),
-            const SizedBox(height: 16),
-            if (record != null) _Stars(count: record.stars),
-            if (record != null) const SizedBox(height: 16),
+            const SizedBox(height: 14),
+            if (record != null) _Paws(count: record.stars),
+            if (record != null) const SizedBox(height: 14),
             Text(
               'You got ${summary.firstTimeCorrect} of ${summary.asked} '
               'right first time.',
@@ -153,8 +157,16 @@ class _ExercisePageState extends State<ExercisePage> {
                 style: text.bodyLarge,
               ),
             ],
+            if (progress != null && progress.newCats.isNotEmpty) ...<Widget>[
+              const SizedBox(height: 20),
+              _NewFriends(rewards: progress.newCats),
+            ],
             const SizedBox(height: 28),
             FilledButton(onPressed: _start, child: const Text('Go again')),
+            if (progress != null) ...<Widget>[
+              const SizedBox(height: 26),
+              _Collection(progress: progress),
+            ],
             if (progress != null &&
                 progress.unlockedLevels.length > 1) ...<Widget>[
               const SizedBox(height: 28),
@@ -311,9 +323,9 @@ class _LetterButtons extends StatelessWidget {
   }
 }
 
-/// Stars for the round just finished. Accuracy only — there is no clock.
-class _Stars extends StatelessWidget {
-  const _Stars({required this.count});
+/// How the round went, in paw prints. Accuracy only — there is no clock.
+class _Paws extends StatelessWidget {
+  const _Paws({required this.count});
 
   final int count;
 
@@ -324,15 +336,137 @@ class _Stars extends StatelessWidget {
       children: <Widget>[
         for (int i = 0; i < 3; i++)
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Icon(
-              i < count ? Icons.star_rounded : Icons.star_outline_rounded,
-              size: 48,
-              color: i < count
-                  ? const Color(0xFFE9A93C)
-                  : Theme.of(context).colorScheme.outlineVariant,
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: PawPrint(filled: i < count, size: 44),
+          ),
+      ],
+    );
+  }
+}
+
+/// The cat that keeps him company: whichever friend he met most recently.
+///
+/// Always pleased to see him, and *delighted* after a perfect round — never
+/// anything less. A mascot that looks disappointed is a guilt lever, and the
+/// documented harm is children managing anxiety rather than learning
+/// (DEC-0007). There is no mood available here that could express it.
+class _Companion extends StatelessWidget {
+  const _Companion({required this.progress, required this.record});
+
+  final ProgressController progress;
+  final RoundRecord? record;
+
+  @override
+  Widget build(BuildContext context) {
+    final List<CatReward> cats = progress.cats;
+    if (cats.isEmpty) return const SizedBox.shrink();
+    final CatReward companion = progress.newCats.isNotEmpty
+        ? progress.newCats.last
+        : cats.last;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Column(
+        children: <Widget>[
+          CatView(
+            cat: companion.cat,
+            mood: (record?.stars ?? 0) == 3
+                ? CatMood.delighted
+                : CatMood.pleased,
+            size: 116,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            companion.cat.name,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Announces cats that arrived because of this round.
+class _NewFriends extends StatelessWidget {
+  const _NewFriends({required this.rewards});
+
+  final List<CatReward> rewards;
+
+  @override
+  Widget build(BuildContext context) {
+    final TextTheme text = Theme.of(context).textTheme;
+    return Column(
+      children: <Widget>[
+        for (final CatReward reward in rewards)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Column(
+              children: <Widget>[
+                Text(
+                  'You met ${reward.cat.name}!',
+                  style: text.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                Text(
+                  reward.description,
+                  style: text.bodySmall,
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
+      ],
+    );
+  }
+}
+
+/// Every cat, met and unmet.
+///
+/// Unmet cats are drawn as silhouettes rather than hidden, so he can see how
+/// many friends are still out there without being shown who they are.
+class _Collection extends StatelessWidget {
+  const _Collection({required this.progress});
+
+  final ProgressController progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final Set<String> met = progress.cats
+        .map((CatReward r) => r.cat.id)
+        .toSet();
+    final CatReward? next = progress.nextCat;
+    return Column(
+      children: <Widget>[
+        Text(
+          'Your cats — ${met.length} of ${CatCatalogue.all.length}',
+          style: Theme.of(context).textTheme.labelLarge,
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 2,
+          runSpacing: 2,
+          alignment: WrapAlignment.center,
+          children: <Widget>[
+            for (final CatReward reward in CatCatalogue.all)
+              Semantics(
+                label: met.contains(reward.cat.id)
+                    ? reward.cat.name
+                    : 'a cat you have not met yet',
+                child: CatView(
+                  cat: reward.cat,
+                  size: 40,
+                  faded: !met.contains(reward.cat.id),
+                ),
+              ),
+          ],
+        ),
+        if (next != null) ...<Widget>[
+          const SizedBox(height: 8),
+          Text(
+            'Next friend: ${next.hint}',
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center,
+          ),
+        ],
       ],
     );
   }
