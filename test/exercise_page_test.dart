@@ -506,4 +506,39 @@ void main() {
       expect(find.textContaining('Next friend:'), findsOneWidget);
     });
   });
+  group('the progress trail', () {
+    testWidgets('is a paw print per question, filling as he goes', (
+      WidgetTester tester,
+    ) async {
+      await _pump(tester, roundLength: 4);
+
+      List<PawPrint> paws() =>
+          tester.widgetList<PawPrint>(find.byType(PawPrint)).toList();
+
+      expect(paws(), hasLength(4), reason: 'one per question in the round');
+      expect(
+        paws().where((PawPrint p) => p.filled),
+        isEmpty,
+        reason: 'nothing done yet on the first question',
+      );
+
+      await _answerCorrectly(tester);
+      expect(paws().where((PawPrint p) => p.filled), hasLength(1));
+
+      await _answerCorrectly(tester);
+      expect(paws().where((PawPrint p) => p.filled), hasLength(2));
+    });
+
+    testWidgets('shows no number and no clock', (WidgetTester tester) async {
+      await _pump(tester, roundLength: 12);
+      // A fraction like "4 / 12" invites hurrying, which is the opposite of
+      // what this exercise wants while accuracy is still being built.
+      final Iterable<String> texts = tester
+          .widgetList<Text>(find.byType(Text))
+          .map((Text t) => t.data ?? '');
+      for (final String text in texts) {
+        expect(RegExp(r'\d').hasMatch(text), isFalse, reason: 'found "$text"');
+      }
+    });
+  });
 }

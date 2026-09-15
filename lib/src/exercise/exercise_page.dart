@@ -194,7 +194,7 @@ class _ExercisePageState extends State<ExercisePage> {
       children: <Widget>[
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-          child: _ProgressDots(
+          child: _ProgressTrail(
             total: round.questionTarget,
             done: round.questionNumber - 1,
           ),
@@ -245,32 +245,26 @@ class _ExercisePageState extends State<ExercisePage> {
   }
 }
 
-/// Where he is in the round. Dots rather than "4 / 12" — a six-year-old reads
-/// a row of dots faster than a fraction, and it carries no sense of a clock.
-class _ProgressDots extends StatelessWidget {
-  const _ProgressDots({required this.total, required this.done});
+/// Where he is in the round: a trail of paw prints, filling as he goes.
+///
+/// Not a number and not a clock. A six-year-old reads "how much is left" off a
+/// row of marks far faster than off "4 / 12", and a fraction quietly invites
+/// hurrying — which is the opposite of what this exercise wants while accuracy
+/// is still being built.
+class _ProgressTrail extends StatelessWidget {
+  const _ProgressTrail({required this.total, required this.done});
 
   final int total;
   final int done;
 
   @override
   Widget build(BuildContext context) {
-    final Color on = Theme.of(context).colorScheme.primary;
-    final Color off = Theme.of(context).colorScheme.surfaceContainerHighest;
     return Wrap(
-      spacing: 6,
-      runSpacing: 6,
+      spacing: 2,
+      runSpacing: 2,
       alignment: WrapAlignment.center,
       children: <Widget>[
-        for (int i = 0; i < total; i++)
-          Container(
-            width: 10,
-            height: 10,
-            decoration: BoxDecoration(
-              color: i < done ? on : off,
-              shape: BoxShape.circle,
-            ),
-          ),
+        for (int i = 0; i < total; i++) PawPrint(filled: i < done, size: 22),
       ],
     );
   }
