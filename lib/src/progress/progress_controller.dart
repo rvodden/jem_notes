@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../cats/cat.dart';
 import '../exercise/exercise_round.dart';
 import '../exercise/level.dart';
 import '../music/pitch.dart';
@@ -33,6 +34,21 @@ class ProgressController extends ChangeNotifier {
   List<Level> get unlockedLevels => Level.ladder
       .where((Level level) => _progress.isUnlocked(level.number))
       .toList();
+
+  /// Every cat he has met.
+  List<CatReward> get cats => CatCatalogue.earned(
+    highestLevel: _progress.highestUnlockedLevel,
+    longestStreak: _progress.longestStreak,
+  );
+
+  /// The next cat to look forward to, or null once he has them all.
+  CatReward? get nextCat => CatCatalogue.next(
+    highestLevel: _progress.highestUnlockedLevel,
+    longestStreak: _progress.longestStreak,
+  );
+
+  /// The cats that arrived because of the round just recorded.
+  List<CatReward> newCats = <CatReward>[];
 
   Future<void> load() async {
     _progress = await store.load();
@@ -75,7 +91,9 @@ class ProgressController extends ChangeNotifier {
       );
     });
 
+    final Set<String> before = cats.map((CatReward r) => r.cat.id).toSet();
     _progress = _progress.withRound(record, stats);
+    newCats = cats.where((CatReward r) => !before.contains(r.cat.id)).toList();
     notifyListeners();
     await store.save(_progress);
     return record;
