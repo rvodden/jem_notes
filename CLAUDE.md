@@ -65,6 +65,34 @@ cli-dor-check --task "backlog/tasks/<file>.md"   # silence means clean
 cli-backlog-verify                                # duplicate-id check
 ```
 
+## Platforms
+
+**Android is the shipping target** (DEC-0002). The learner practises on a
+Samsung A-series tablet, the app is sideloaded, and there is no intent to
+publish — so `ios/` stays in the repo unbuilt, and no Mac or Apple Developer
+membership is needed.
+
+**`web/` is a review-only target** (DEC-0006). It exists so a playable build can
+be handed to a reviewer who is not at the machine:
+
+```bash
+flutter build web --release --no-web-resources-cdn --pwa-strategy=none
+```
+
+`--no-web-resources-cdn` bundles CanvasKit locally instead of fetching it from
+a Google CDN, which is what makes the build work under a strict
+content-security policy — and keeps it consistent with D10's no-network stance.
+
+It earned its place immediately: playing the web build is what revealed that the
+letter buttons could be answered by position rather than by reading. Two things
+it cannot tell you, both of which need the real tablet — whether a six-year-old's
+finger catches the black keys, and whether the reveal pause feels right. And once
+audio lands (phase 5), `flutter_midi_pro` is mobile-only, so **the web build will
+be silent**.
+
+Never treat a green web build as evidence the app works. It has no test coverage
+of its own and nobody ships to it.
+
 ## AI-SDLC quality gate
 
 This repo is bootstrapped with the AI-SDLC framework. The single PR-ready merge
